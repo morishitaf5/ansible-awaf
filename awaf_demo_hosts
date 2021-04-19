@@ -1,0 +1,9 @@
+[awaf_demo]
+bigip01 ansible_host=192.168.0.170 ansible_user=admin admin_password=ffiveadmin
+bigip02 ansible_host=192.168.0.162 ansible_user=admin admin_password=ffiveadmin
+
+[awaf_demo_master]
+bigip01
+
+[awaf_demo_slave]
+bigip02

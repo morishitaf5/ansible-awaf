@@ -1,0 +1,23 @@
+---
+bigip_hostname: bigip01.example.local
+
+bigip_lic: "LEPPA-SRBWF-EPTZX-ZRWRV-ECIBFHA"
+
+nf_selfIP:
+  - selfIP: 100.64.1.249
+    netmask: 255.255.255.0
+    vlan_name: external
+    port_lockdown: none
+  - selfIP: 10.33.0.7
+    netmask: 255.255.255.0
+    vlan_name: internal
+    port_lockdown: default
+  - selfIP: 10.33.1.41
+    netmask: 255.255.255.0
+    vlan_name: ha
+    port_lockdown: default
+
+ha_selfip: '10.33.1.41'
+
+peer_mgmt: 192.168.0.162
+peer_hostname: bigip02.example.local

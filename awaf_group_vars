@@ -1,0 +1,35 @@
+---
+provider:
+  validate_certs: no
+  server: "{{ ansible_host }}"
+  user: admin
+  password: ffiveadmin
+
+ntp1: ntp.nict.jp
+ntp_timezone: "Asia/Tokyo"
+
+dns1: 8.8.8.8
+dns2: 8.8.4.4
+
+admin_user: admin
+admin_password: ffiveadmin
+root_user: root
+root_password: ffiveadmin
+
+roles_path: /root/.ansible
+
+ext_vlan_name: external
+ext_vlan_int: 1.2
+ext_selfipname: external-flo
+ext_floaterip: 100.64.1.251
+int_vlan_name: internal
+int_vlan_int: 1.1
+int_selfipname: internal-flo
+int_floaterip: 10.33.0.251
+ha_vlan_name: ha
+ha_vlan_int: 1.3
+
+netmask: 255.255.255.0
+
+devgroup: DG01
+...
