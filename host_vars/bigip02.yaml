@@ -1,20 +1,20 @@
 ---
 bigip_hostname: bigip02.example.local
 
-bigip_lic: "YKKWY-WCYCR-DOKLS-OBCVQ-NAFCZUD"
+bigip_lic: "CEPJD-EWRLL-MPKAY-XHOHZ-LKCXZDH"
 
 nf_selfIP:
-  - selfIP: 100.64.1.10
+  - selfIP: 192.168.10.26
     netmask: 255.255.255.0
     vlan_name: external
     port_lockdown: none
-  - selfIP: 10.33.0.35
+  - selfIP: 192.168.20.26
     netmask: 255.255.255.0
     vlan_name: internal
     port_lockdown: default
-  - selfIP: 10.33.1.167
+  - selfIP: 192.168.40.26
     netmask: 255.255.255.0
     vlan_name: ha
     port_lockdown: default
 
-ha_selfip: '10.33.1.167'
+ha_selfip: '192.168.40.26'
