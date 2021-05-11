@@ -1,0 +1,46 @@
+- name: Creating Virtual Server
+  hosts: awaf_demo_master
+  gather_facts: no
+  connection: local
+  collections:
+  - f5networks.f5_modules
+
+  tasks:
+
+    - name: Create a Pool
+      bigip_pool:
+        provider: "{{ provider }}"
+        state: "present"
+        name: "pool_webservers"
+        lb_method: "round-robin"
+        monitors:
+          - "gateway_icmp"
+
+    - name: Add Pool Members to the Pool
+      bigip_pool_member:
+        provider: "{{ provider }}"
+        state: "present"
+        pool: "pool_webservers"
+        host: "192.168.20.86"
+        port: "80"
+
+    - name: Create Virtual Server
+      bigip_virtual_server:
+        provider: "{{ provider }}"
+        state: "present"
+        name: "vs_webserver"
+        partition: "Common"
+        destination: "192.168.10.211"
+        pool: "pool_webservers"
+        port: "80"
+        snat: "Automap"
+        profiles:
+          - "http"
+
+  post_tasks:
+
+    - name: Save the running BIG-IP configuration to disk
+      bigip_config:
+        provider: "{{ provider }}"
+        save: True
+      register: result

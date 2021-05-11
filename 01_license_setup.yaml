@@ -1,0 +1,49 @@
+---
+- name: License setup
+  hosts: awaf_demo
+  gather_facts: no
+  connection: local
+  collections:
+  - f5networks.f5_modules
+
+  tasks:
+
+    - name: Configure admin user's password
+      uri:
+        url: "https://{{ ansible_host }}/mgmt/shared/authz/users/admin"
+        method: PATCH
+        body: '{"oldPassword":"admin","password":"{{ admin_password }}"}'
+        body_format: "json"
+        validate_certs: "no"
+        force_basic_auth: "yes"
+        user: "admin"
+        password: "admin"
+        status_code: 200
+
+    - name: Change root user's password
+      bigip_user:
+        provider: "{{ provider }}"
+        username_credential: "{{ root_user }}"
+        password_credential: "{{ root_password }}"
+
+    - name: Disable GUI Setup on BIG-IPs
+      bigip_sys_global:
+        provider: "{{ provider }}"
+        state: "present"
+        gui_setup: "no"
+
+    - name: Create a management default route
+      bigip_management_route:
+        provider: "{{ provider }}"
+        name: default-route
+        gateway: 192.168.50.1
+        network: default
+        state: present
+
+  post_tasks:
+
+    - name: Save the running BIG-IP configuration to disk
+      bigip_config:
+        provider: "{{ provider }}"
+        save: True
+      register: result

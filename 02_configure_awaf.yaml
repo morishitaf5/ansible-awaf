@@ -1,0 +1,202 @@
+---
+- name: Configuring AWAF
+  hosts: awaf_demo
+  gather_facts: no
+  connection: local
+  collections:
+  - f5networks.f5_modules
+
+  tasks:
+
+    - name: Change host names of BIG-IPs
+      bigip_hostname:
+        provider: "{{ provider }}"
+        hostname: "{{ bigip_hostname }}"
+
+    - name: Configure NTP Servers & Time Zone
+      bigip_device_ntp:
+        provider: "{{ provider }}"
+        ntp_servers:
+          - "{{ ntp1 }}"
+        timezone: "{{ ntp_timezone }}"
+
+    - name:  Configure DNS Servers
+      bigip_device_dns:
+        provider: "{{ provider }}"
+        name_servers:
+          - "{{ dns1 }}"
+          - "{{ dns2 }}"
+
+    - name: Create internal trunk
+      bigip_trunk:
+        provider: "{{ provider }}"
+        name: "{{ int_vlan_trunk }}"
+        interfaces:
+          - "{{ int_vlan_int }}"
+
+    - name: Create external trunk
+      bigip_trunk:
+        provider: "{{ provider }}"
+        name: "{{ ext_vlan_trunk }}"
+        interfaces:
+          - "{{ ext_vlan_int }}"
+
+    - name: Create External VLAN
+      bigip_vlan:
+        provider: "{{ provider }}"
+        name: "{{ ext_vlan_name }}"
+        untagged_interfaces: "{{ ext_vlan_trunk }}"
+        mtu: "1442"
+
+    - name: Create Internal VLAN
+      bigip_vlan:
+        provider: "{{ provider }}"
+        name: "{{ int_vlan_name }}"
+        untagged_interfaces: "{{ int_vlan_trunk }}"
+        mtu: "1442"
+
+    - name: Create HA VLAN
+      bigip_vlan:
+        provider: "{{ provider }}"
+        name: "{{ ha_vlan_name }}"
+        untagged_interfaces: "{{ ha_vlan_int }}"
+        mtu: "1442"
+
+    - name: Assign Self-IPs
+      bigip_selfip:
+        provider: "{{ provider }}"
+        name: "{{ item.selfIP }}"
+        address: "{{ item.selfIP }}"
+        netmask: "{{ item.netmask }}"
+        vlan: "{{ item.vlan_name }}"
+        allow_service: "{{ item.port_lockdown }}"
+      with_items: "{{ nf_selfIP }}"
+
+    - name: Specify Configsync, Mirroring and Failover IPs
+      bigip_device_connectivity:
+        provider: "{{ provider }}"
+        config_sync_ip: "{{ ha_selfip }}"
+        mirror_primary_address: "{{ ha_selfip }}"
+        unicast_failover:
+          - address: "{{ ha_selfip }}"
+
+    - name: Add-to-trust to be executed only from master to slave
+      bigip_device_trust:
+        provider: "{{ provider }}"
+        peer_server: "{{ peer_mgmt }}"
+        peer_hostname: "{{ peer_hostname }}"
+        peer_user: "{{ admin_user }}"
+        peer_password: "{{ admin_password }}"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Create a Sync-failover device group
+      bigip_device_group:
+        provider: "{{ provider }}"
+        name: "{{ devgroup }}"
+        type: "sync-failover"
+        auto_sync: "yes"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Add local device to the device group
+      bigip_device_group_member:
+        provider: "{{ provider }}"
+        device_group: "{{ devgroup }}"
+        name: "{{ bigip_hostname }}"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Add remote device to the device group
+      bigip_device_group_member:
+        provider: "{{ provider }}"
+        device_group: "{{ devgroup }}"
+        name: "{{ peer_hostname }}"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Create HA group with trunks
+      bigip_device_ha_group:
+        provider: "{{ provider }}"
+        name: "{{ hagroup }}"
+        active_bonus: 10
+        trunks:
+          - trunk_name: "{{ ext_vlan_trunk }}"
+            weight: 10
+            minimum_threshold: 1
+          - trunk_name: "{{ int_vlan_trunk }}"
+            weight: 10
+            minimum_threshold: 1
+
+    - name: modify traffic group with ha_order failover
+      bigip_device_traffic_group:
+        provider: "{{ provider }}"
+        name: traffic-group-1
+        state: present
+        ha_order:
+          - "/Common/{{ bigip_hostname }}"
+          - "/Common/{{ peer_hostname }}"
+        auto_failback: yes
+        auto_failback_time: 30
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: modify traffic group with HA group
+      bigip_command:
+        provider: "{{ provider }}"
+        commands:
+          - "modify cm traffic-group traffic-group-1 { monitor { ha-group {{ hagroup }} } }"
+
+    - name: Waiting for BIG-IP to be ready
+      bigip_wait:
+        provider: "{{ provider }}"
+        sleep: 10
+
+    - name: Perform DG01 Initial sync
+      bigip_configsync_action:
+        provider: "{{ provider }}"
+        device_group: "{{ devgroup }}"
+        sync_device_to_group: "yes"
+        overwrite_config: "yes"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Enable security policy sync
+      bigip_command:
+        provider: "{{ provider }}"
+        commands:
+          - "modify cm device-group {{devgroup}} { asm-sync enabled }"
+          - "create asm device-sync {{devgroup}}_asm_sync/{{ bigip_hostname }} { }"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Create External floating Self-IP to traffic-group-1
+      bigip_selfip:
+        provider: "{{ provider }}"
+        name: "{{ ext_selfipname }}"
+        address: "{{ ext_floaterip }}"
+        netmask: "{{ netmask }}"
+        vlan: "{{ ext_vlan_name }}"
+        allow_service: "default"
+        traffic_group: "traffic-group-1"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Create Internal floating Self-IP to traffic-group-1
+      bigip_selfip:
+        provider: "{{ provider }}"
+        name: "{{ int_selfipname }}"
+        address: "{{ int_floaterip }}"
+        netmask: "{{ netmask }}"
+        vlan: "{{ int_vlan_name }}"
+        allow_service: "default"
+        traffic_group: "traffic-group-1"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+    - name: Perform datasync-global-dg Initial sync
+      bigip_configsync_action:
+        provider: "{{ provider }}"
+        device_group: "datasync-global-dg"
+        sync_device_to_group: "yes"
+        overwrite_config: "yes"
+      when: inventory_hostname in groups['awaf_demo_master']
+
+  post_tasks:
+
+    - name: Save the running BIG-IP configuration to disk
+      bigip_config:
+        provider: "{{ provider }}"
+        save: True
+      register: result
