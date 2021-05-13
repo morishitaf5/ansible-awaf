@@ -11,6 +11,7 @@
 ┃　　┣━ bigip01.yaml  
 ┃　　┗━ bigip02.yaml  
 ┃  
-┣━ configure_awaf.yaml  
-┣━ create_vs.yaml  
-┗━ attach_policy.yaml  
+┣━ 01_setup.yaml  
+┣━ 02_configure_awaf.yaml  
+┣━ 03_create_vs.yaml  
+┗━ 04_attach_policy.yaml  
