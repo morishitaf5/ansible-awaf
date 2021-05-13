@@ -1,5 +1,5 @@
 ---
-- name: License setup
+- name: setup
   hosts: awaf_demo
   gather_facts: no
   connection: local
